@@ -16,33 +16,30 @@ class StyleTransferer:
 
         self.unloader = transforms.ToPILImage()
 
-    def transfer(self, style_image_path, content_iamge_path):
-        content_img = Image.open(content_iamge_path)
-        style_img = Image.open(style_image_path)
-
+    def transfer(self, style_image, content_iamge):
         content_loader = transforms.Compose([
-            transforms.Resize(content_img.size),  # scale imported image
+            transforms.Resize(content_iamge.size),  # scale imported image
             transforms.ToTensor()]
         )  # transform it into a torch tensor
 
-        long_length = content_img.size[0] if content_img.size[0] > content_img.size[1] else content_img.size[1]
+        long_length = content_iamge.size[0] if content_iamge.size[0] > content_iamge.size[1] else content_iamge.size[1]
 
         style_loader = transforms.Compose([
             transforms.Resize(long_length),
-            transforms.CenterCrop(content_img.size),
+            transforms.CenterCrop(content_iamge.size),
             transforms.ToTensor()]
         )  # transform it into a torch tensor
 
-        content_img = content_loader(content_img).unsqueeze(0).to(self.device, torch.float)
-        style_img = style_loader(style_img).unsqueeze(0).to(self.device, torch.float)
+        content_iamge = content_loader(content_iamge).unsqueeze(0).to(self.device, torch.float)
+        style_image = style_loader(style_image).unsqueeze(0).to(self.device, torch.float)
 
-        assert style_img.size() == content_img.size()
+        assert style_image.size() == content_iamge.size()
 
-        input_img = content_img.clone()
+        input_image = content_iamge.clone()
 
         style_transfered_image =  self._run_style_transfer(
             self.cnn, self.normalization_mean, self.normalization_std,
-            content_img, style_img, input_img,
+            content_iamge, style_image, input_image,
         )
 
         style_transfered_image = style_transfered_image.cpu().clone()  # we clone the tensor to not do changes on it
@@ -52,28 +49,28 @@ class StyleTransferer:
         return style_transfered_image
     
     def _run_style_transfer(self, cnn, normalization_mean, normalization_std,
-        content_img, style_img, input_img, num_steps=300,
+        content_image, style_image, input_image, num_steps=300,
         style_weight=1000000, content_weight=1
     ):
         model, style_losses, content_losses = self._get_style_model_and_losses(cnn,
-            normalization_mean, normalization_std, style_img, content_img)
+            normalization_mean, normalization_std, style_image, content_image)
 
         # We want to optimize the input and not the model parameters so we
         # update all the requires_grad fields accordingly
-        input_img.requires_grad_(True)
+        input_image.requires_grad_(True)
         model.requires_grad_(False)
 
-        optimizer = self._get_input_optimizer(input_img)
+        optimizer = self._get_input_optimizer(input_image)
 
         run = [0]
         while run[0] <= num_steps:
             def closure():
                 # correct the values of updated input image
                 with torch.no_grad():
-                    input_img.clamp_(0, 1)
+                    input_image.clamp_(0, 1)
 
                 optimizer.zero_grad()
-                model(input_img)
+                model(input_image)
                 style_score = 0
                 content_score = 0
 
@@ -101,12 +98,12 @@ class StyleTransferer:
 
         # a last correction...
         with torch.no_grad():
-            input_img.clamp_(0, 1)
+            input_image.clamp_(0, 1)
 
-        return input_img
+        return input_image
 
     def _get_style_model_and_losses(
-        self, cnn, normalization_mean, normalization_std, style_img, content_img,
+        self, cnn, normalization_mean, normalization_std, style_image, content_image,
     ):
         content_layers = ['conv_4']
         style_layers = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
@@ -145,14 +142,14 @@ class StyleTransferer:
 
             if name in content_layers:
                 # add content loss:
-                target = model(content_img).detach()
+                target = model(content_image).detach()
                 content_loss = ContentLoss(target)
                 model.add_module("content_loss_{}".format(i), content_loss)
                 content_losses.append(content_loss)
 
             if name in style_layers:
                 # add style loss:
-                target_feature = model(style_img).detach()
+                target_feature = model(style_image).detach()
                 style_loss = StyleLoss(target_feature)
                 model.add_module("style_loss_{}".format(i), style_loss)
                 style_losses.append(style_loss)
@@ -166,7 +163,7 @@ class StyleTransferer:
 
         return model, style_losses, content_losses
 
-    def _get_input_optimizer(self, input_img):
+    def _get_input_optimizer(self, input_image):
         # this line to show that input is a parameter that requires a gradient
-        optimizer = optim.LBFGS([input_img])
+        optimizer = optim.LBFGS([input_image])
         return optimizer
