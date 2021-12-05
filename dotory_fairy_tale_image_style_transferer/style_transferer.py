@@ -39,7 +39,7 @@ class StyleTransferer:
         input_img = content_img.clone()
 
         return self._run_style_transfer(
-            self.cnn, self.cnn_normalization_mean, self.cnn_normalization_std,
+            self.cnn, self.normalization_mean, self.normalization_std,
             content_img, style_img, input_img,
         )
     
