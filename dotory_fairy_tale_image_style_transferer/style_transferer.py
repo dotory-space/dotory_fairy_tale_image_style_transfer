@@ -161,7 +161,7 @@ class StyleTransferer:
 
         return model, style_losses, content_losses
 
-    def _get_input_optimizer(input_img):
+    def _get_input_optimizer(self, input_img):
         # this line to show that input is a parameter that requires a gradient
         optimizer = optim.LBFGS([input_img])
         return optimizer
