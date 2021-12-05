@@ -14,6 +14,8 @@ class StyleTransferer:
         self.normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device)
         self.normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)
 
+        self.unloader = transforms.ToPILImage()
+
     def transfer(self, style_image_path, content_iamge_path):
         content_img = Image.open(content_iamge_path)
         style_img = Image.open(style_image_path)
@@ -38,17 +40,21 @@ class StyleTransferer:
 
         input_img = content_img.clone()
 
-        return self._run_style_transfer(
+        style_transfered_image =  self._run_style_transfer(
             self.cnn, self.normalization_mean, self.normalization_std,
             content_img, style_img, input_img,
         )
+
+        style_transfered_image = style_transfered_image.cpu().clone()  # we clone the tensor to not do changes on it
+        style_transfered_image = style_transfered_image.squeeze(0)      # remove the fake batch dimension
+        style_transfered_image = self.unloader(style_transfered_image)
+
+        return style_transfered_image
     
     def _run_style_transfer(self, cnn, normalization_mean, normalization_std,
         content_img, style_img, input_img, num_steps=300,
         style_weight=1000000, content_weight=1
     ):
-        """Run the style transfer."""
-        print('Building the style transfer model..')
         model, style_losses, content_losses = self._get_style_model_and_losses(cnn,
             normalization_mean, normalization_std, style_img, content_img)
 
@@ -59,7 +65,6 @@ class StyleTransferer:
 
         optimizer = self._get_input_optimizer(input_img)
 
-        print('Optimizing..')
         run = [0]
         while run[0] <= num_steps:
             def closure():
@@ -84,11 +89,11 @@ class StyleTransferer:
                 loss.backward()
 
                 run[0] += 1
-                if run[0] % 50 == 0:
-                    print("run {}:".format(run))
-                    print('Style Loss : {:4f} Content Loss: {:4f}'.format(
-                        style_score.item(), content_score.item()))
-                    print()
+                # if run[0] % 50 == 0:
+                #     print("run {}:".format(run))
+                #     print('Style Loss : {:4f} Content Loss: {:4f}'.format(
+                #         style_score.item(), content_score.item()))
+                #     print()
 
                 return style_score + content_score
 
