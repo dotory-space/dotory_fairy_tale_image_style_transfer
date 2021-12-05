@@ -14,7 +14,7 @@ setup(
     description="dotory fairy tale image style transfer",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/dotory-space/dotory_fairy_tale_image_style_transfer.git",
+    url="https://github.com/dotory-space/dotory_fairy_tale_image_style_transferer.git",
     packages=find_packages(),
     install_requires=requirements,
 )
