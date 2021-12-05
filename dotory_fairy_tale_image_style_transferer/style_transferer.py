@@ -7,16 +7,18 @@ import torch.nn as nn
 from .loss import ContentLoss, StyleLoss, Normalization
 
 class StyleTransferer:
-    def __init__(self):
+    def __init__(self, style_image):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cnn = models.vgg19(pretrained=True).features.to(self.device).eval()
 
         self.normalization_mean = torch.tensor([0.485, 0.456, 0.406]).to(self.device)
         self.normalization_std = torch.tensor([0.229, 0.224, 0.225]).to(self.device)
 
+        self.style_image = style_image
+
         self.unloader = transforms.ToPILImage()
 
-    def transfer(self, style_image, content_iamge):
+    def transfer(self, content_iamge):
         content_loader = transforms.Compose([
             transforms.Resize(content_iamge.size),  # scale imported image
             transforms.ToTensor()]
@@ -31,7 +33,7 @@ class StyleTransferer:
         )  # transform it into a torch tensor
 
         content_iamge = content_loader(content_iamge).unsqueeze(0).to(self.device, torch.float)
-        style_image = style_loader(style_image).unsqueeze(0).to(self.device, torch.float)
+        style_image = style_loader(self.style_image).unsqueeze(0).to(self.device, torch.float)
 
         assert style_image.size() == content_iamge.size()
 
