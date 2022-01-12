@@ -17,21 +17,35 @@ class StyleTransferer:
         self.unloader = transforms.ToPILImage()
 
     def transfer(self, style_image, content_iamge):
-        content_loader = transforms.Compose([
-            transforms.Resize(content_iamge.size),  # scale imported image
-            transforms.ToTensor()]
-        )  # transform it into a torch tensor
+        long_length_index = 0 if content_iamge.size[0] > content_iamge.size[1] else 1
+        short_length_index = 1 if long_length_index == 0 else 0
 
-        long_length = content_iamge.size[0] if content_iamge.size[0] > content_iamge.size[1] else content_iamge.size[1]
+        long_length = content_iamge.size[long_length_index]
+        short_length = content_iamge.size[short_length_index]
+
+        max_length = 512
+
+        short_length = short_length if long_length <= max_length else int(short_length * max_length / long_length)
+        long_length = long_length if long_length <= max_length else max_length
+
+        new_size = [-1, -1]
+
+        new_size[long_length_index] = long_length
+        new_size[short_length_index] = short_length
 
         style_loader = transforms.Compose([
             transforms.Resize(long_length),
-            transforms.CenterCrop(content_iamge.size),
+            transforms.CenterCrop(new_size),
             transforms.ToTensor()]
-        )  # transform it into a torch tensor
+        )
 
-        content_iamge = content_loader(content_iamge).unsqueeze(0).to(self.device, torch.float)
+        content_loader = transforms.Compose([
+            transforms.Resize(new_size),
+            transforms.ToTensor()]
+        )
+
         style_image = style_loader(style_image).unsqueeze(0).to(self.device, torch.float)
+        content_iamge = content_loader(content_iamge).unsqueeze(0).to(self.device, torch.float)
 
         assert style_image.size() == content_iamge.size()
 
